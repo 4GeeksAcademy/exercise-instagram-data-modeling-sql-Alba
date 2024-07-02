@@ -1,12 +1,19 @@
 import os
 import sys
-from sqlalchemy import Column, ForeignKey, Integer, String,Enum
+from sqlalchemy import Column, ForeignKey, Integer, String,Enum, Table
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import relationship 
 from sqlalchemy import create_engine
 from eralchemy2 import render_er
 
 Base = declarative_base()
+
+Followers = Table(
+    'followers',
+    Base.metadata,
+    Column('follower_id', Integer, ForeignKey('user.id'), primary_key=True),
+    Column('following_id', Integer, ForeignKey('user.id'), primary_key=True),
+)
 
 class User(Base):
     __tablename__ = "user"
@@ -15,12 +22,18 @@ class User(Base):
     firstname = Column(String(250), nullable=False)
     lastname = Column(String(250), nullable=False)
     email = Column(String(250), nullable=False)
-
-    posts = relationship('Post', back_populates='user')
-    comments = relationship('Comment', back_populates='user')
-    media = relationship('Media', back_populates='user')
-    followers = relationship('Follower', foreign_keys='Follower.user_from_id', back_populates='user_from')
-    following = relationship('Follower', foreign_keys='Follower.user_to_id', back_populates='user_to')
+    posts = relationship('Post', backref='user')
+    comments = relationship('Comment', backref='user')
+    media = relationship('Media', backref='user')
+    followed = relationship(
+        'User',
+        secondary = Followers,
+        primaryjoin=(Followers.c.following_id == id),
+        secondaryjoin=(Followers.c.follower_id == id),
+        backref="following",
+        lazy=True
+    
+)
 
 class Post(Base):
     __tablename__ = "post"
@@ -28,8 +41,8 @@ class Post(Base):
     user_id = Column(Integer, ForeignKey('user.id'))
     comment_id = Column(String, ForeignKey('comment.id'))
     user = relationship(User)
-    comments = relationship('Comment', back_populates='post')
-    media = relationship('Media', back_populates='post')
+    comments = relationship('Comment', backref='post')
+    media = relationship('Media', backref='post')
 
 class Comment(Base):
     __tablename__ = "comment"
@@ -37,26 +50,29 @@ class Comment(Base):
     comment_text = Column(String(250), nullable=False)
     author_id = Column(Integer, ForeignKey('user.id'))
     post_id = Column(Integer, ForeignKey('post.id'))
-    user = relationship('User', back_populates='comments')
-    post = relationship('Post', back_populates='comments')
+    user = relationship('User', backref='comments')
+    post = relationship('Post', backref='comments')
     
 
 class Media(Base):
     __tablename__ = "media"
-    id = Column(Integer, ForeignKey('user.id'))
+    id = Column(Integer, primary_key=True)
     type = Column(Enum("reel","carrousel","history"), nullable=False)
     url = Column(String(250), nullable=False)
     post_id = Column(Integer, ForeignKey('post.id'))
-    post = relationship('Post', back_populates='media')
+    post = relationship('Post', backref='media')
     user_id = Column(Integer, ForeignKey('user.id'))
-    user = relationship('User', back_populates='media')
+    user = relationship('User', backref='media')
     
 class Follower(Base):
     __tablename__ = "follower"
-    user_from_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    user_to_id = Column(Integer, ForeignKey('user.id'), nullable=False)
-    user_from = relationship('User', foreign_keys=[user_from_id], back_populates='followers')
-    user_to = relationship('User', foreign_keys=[user_to_id], back_populates='following')
+    follower_id = Column(Integer, primary_key=True)
+    following_id = Column(Integer, primary_key=True)
+
+
+
+    # user_to_id = Column(Integer, primary_key=True)
+    
 
 
 
